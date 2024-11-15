@@ -29,35 +29,26 @@ class TrustedPartScraper:
         scraped_data["categories"] = categories
         scraped_data["description"] = description
 
-
         stock_and_price_data = self.scrape_stock_and_price()
         if stock_and_price_data:
             scraped_data["stock_and_price"] = stock_and_price_data
 
+        product_informations = self.scrape_product_informations()
+        scraped_data["product_information"] = product_informations
 
-        similar_parts=self.scrape_product_informations()
+        similar_parts = self.scrape_similar_parts_serial_number()
+        scraped_data["similar_parts"] = similar_parts
 
-        scraped_data["series"]=similar_parts["Series"]
+        long_desc = self.scrape_descriptions()
+        scraped_data["long_desc"] = long_desc
 
+        referenced_names = self.scrape_referenced_names()
+        scraped_data["referenced_names"] = referenced_names
 
-        similar_parts=self.scrape_similar_parts_serial_number()
-        scraped_data["similar_parts"]=similar_parts
-
-        long_desc=self.scrape_descriptions()
-        scraped_data["long_desc"]=long_desc
-
-
-        referenced_names=self.scrape_referenced_names()
-        scraped_data["referenced_names"]=referenced_names
-        
         with open("file.json", "w") as file:
             json.dump(scraped_data, file)
 
-        print("scraped data",scraped_data)
-
-
-
-
+        print("scraped data", scraped_data)
 
     def scrape_title(self):
         title_tag = self.soup.find("h1")
@@ -130,9 +121,8 @@ class TrustedPartScraper:
             return risks
         return risks
 
-
     def scrape_stock_and_price(self):
-  
+
         stock_table = self.soup.find("table", {"id": "ExactMatchesTable"})
         stock_table_body = stock_table.find("tbody")
         table_rows = stock_table_body.find_all("tr")
@@ -141,7 +131,7 @@ class TrustedPartScraper:
         if thead:
             headers = [header.get_text(strip=True) for header in thead.find_all("th")]
             if headers:
-                headers.pop(-1)  
+                headers.pop(-1)
 
         results = []
 
@@ -159,7 +149,6 @@ class TrustedPartScraper:
                 "quantity_price": [],
             }
 
-            
             price_section = row.find("td", class_="text-nowrap")
             if price_section:
                 sections = price_section.find_all("section", class_="flex py-0.5")
@@ -171,12 +160,11 @@ class TrustedPartScraper:
                         if (quantity, price) not in _data["quantity_price"]:
                             _data["quantity_price"].append((quantity, price))
 
-     
             data_cells = row.find_all("td")
             for index, cell in enumerate(data_cells):
                 buttons = cell.find_all("button")
                 for button in buttons:
-                    button.extract() 
+                    button.extract()
 
                 link = cell.find("a", class_="flex justify-center items-start")
 
@@ -197,44 +185,41 @@ class TrustedPartScraper:
             _pkg_moq = _data.get("Pkg (MOQ)")
 
             if _pkg_moq:
-           
+
                 match = re.match(r"([A-Za-z\s]+)\((\d+)\)", _pkg_moq)
 
                 if match:
                     pkg = match.group(1).strip()
-                    moq = int(match.group(2))   
+                    moq = int(match.group(2))
                 else:
-                    pkg = _pkg_moq.strip()  
+                    pkg = _pkg_moq.strip()
                     moq = None
             else:
                 pkg, moq = None, None
 
-           
             selected_data = {
-                "data_dist":_data.get("data_dist"),
-                "data_cur":_data.get("data_cur"),
-                "data_stock":_data.get("data_stock"),
-                "data_mfr":_data.get("data_stock"),
+                "data_dist": _data.get("data_dist"),
+                "data_cur": _data.get("data_cur"),
+                "data_stock": _data.get("data_stock"),
+                "data_mfr": _data.get("data_stock"),
                 "sku": _data.get("Distributor Part #"),
-                "packaging": pkg,  
-                "moq": moq,  
+                "packaging": pkg,
+                "moq": moq,
                 "seller_url": _data.get("product_url"),
                 "seller_image": _data.get("img_src"),
                 "seller_name": _data.get("product_name"),
-                "aviliable_qty":_data.get("data_stock"),
-                "prices":_data.get("quantity_price"),
-                "purchase_url":_data.get("product_url"),
+                "aviliable_qty": _data.get("data_stock"),
+                "prices": _data.get("quantity_price"),
+                "purchase_url": _data.get("product_url"),
             }
 
             results.append(selected_data)
 
-    
         if not results:
             return None
 
         return results
 
-    
     def scrape_product_informations(self):
         specs_data = None
         specs_container = self.soup.find("div", id="product-specs")
