@@ -6,9 +6,9 @@ import re
 
 from scrapingbee import ScrapingBeeClient
 from bs4 import BeautifulSoup
+from utils.button_utils import extract_button_info
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../utils")))
-from button_utils import extract_button_info
+import json
 
 
 class TrustedPartScraper:
@@ -29,9 +29,33 @@ class TrustedPartScraper:
         scraped_data["categories"] = categories
         scraped_data["description"] = description
 
-        print(self.scrape_stock_and_price())
 
-        print("self data", scraped_data)
+        stock_and_price_data = self.scrape_stock_and_price()
+        if stock_and_price_data:
+            scraped_data["stock_and_price"] = stock_and_price_data
+
+
+        similar_parts=self.scrape_product_informations()
+
+        scraped_data["series"]=similar_parts["Series"]
+
+
+        similar_parts=self.scrape_similar_parts_serial_number()
+        scraped_data["similar_parts"]=similar_parts
+
+        long_desc=self.scrape_descriptions()
+        scraped_data["long_desc"]=long_desc
+
+
+        referenced_names=self.scrape_referenced_names()
+        scraped_data["referenced_names"]=referenced_names
+        
+        with open("file.json", "w") as file:
+            json.dump(scraped_data, file)
+
+        print("scraped data",scraped_data)
+
+
 
 
 
@@ -198,7 +222,7 @@ class TrustedPartScraper:
                 "seller_image": _data.get("img_src"),
                 "seller_name": _data.get("product_name"),
                 "aviliable_qty":_data.get("data_stock"),
-                "prices":_data.get("quantity_price'"),
+                "prices":_data.get("quantity_price"),
                 "purchase_url":_data.get("product_url"),
             }
 
