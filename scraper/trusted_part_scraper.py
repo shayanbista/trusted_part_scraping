@@ -2,6 +2,8 @@ import time
 import sys
 import os
 
+import re
+
 from scrapingbee import ScrapingBeeClient
 from bs4 import BeautifulSoup
 
@@ -14,22 +16,24 @@ class TrustedPartScraper:
         self.soup = soup
 
     def parse(self):
-        self.data = {}
+        scraped_data = {}
 
-        # title, model, stock_availability = self.scrape_title()
+        title, model, stock_availability = self.scrape_title()
 
-        # self.data["mfg"] = title
-        # self.data["mpn"] = model
-        # self.data["part_status"] = stock_availability
+        scraped_data["mfg"] = title
+        scraped_data["mpn"] = model
+        scraped_data["part_status"] = stock_availability
 
-        # categories, description = self.scrape_categories()
+        categories, description = self.scrape_categories()
 
-        # self.data["categories"] = categories
-        # self.data["description"] = description
+        scraped_data["categories"] = categories
+        scraped_data["description"] = description
 
-        # print("self data", self.data)
+        print(self.scrape_stock_and_price())
 
-        self.scrape_similar_parts_serial_number()
+        print("self data", scraped_data)
+
+
 
     def scrape_title(self):
         title_tag = self.soup.find("h1")
@@ -73,6 +77,7 @@ class TrustedPartScraper:
         return categories, description
 
     def scrape_product_title(self):
+
         product_info = None
         a_tag = self.soup.find("a", class_="block mb-4")
         if not a_tag:
@@ -101,8 +106,9 @@ class TrustedPartScraper:
             return risks
         return risks
 
-    def scrape_stock_and_price(self):
 
+    def scrape_stock_and_price(self):
+  
         stock_table = self.soup.find("table", {"id": "ExactMatchesTable"})
         stock_table_body = stock_table.find("tbody")
         table_rows = stock_table_body.find_all("tr")
@@ -111,11 +117,11 @@ class TrustedPartScraper:
         if thead:
             headers = [header.get_text(strip=True) for header in thead.find_all("th")]
             if headers:
-                headers.pop(-1)
+                headers.pop(-1)  
 
         results = []
 
-        for row in table_rows[:1]:
+        for row in table_rows:
             data_dist = row.get("data-dist")
             data_cur = row.get("data-cur")
             data_stock = row.get("data-stock-qty")
@@ -129,8 +135,8 @@ class TrustedPartScraper:
                 "quantity_price": [],
             }
 
+            
             price_section = row.find("td", class_="text-nowrap")
-
             if price_section:
                 sections = price_section.find_all("section", class_="flex py-0.5")
                 for section in sections:
@@ -141,12 +147,12 @@ class TrustedPartScraper:
                         if (quantity, price) not in _data["quantity_price"]:
                             _data["quantity_price"].append((quantity, price))
 
+     
             data_cells = row.find_all("td")
-
             for index, cell in enumerate(data_cells):
                 buttons = cell.find_all("button")
                 for button in buttons:
-                    button.extract()
+                    button.extract() 
 
                 link = cell.find("a", class_="flex justify-center items-start")
 
@@ -164,14 +170,47 @@ class TrustedPartScraper:
                     if column_name not in ["Datasheet", "Pricing"]:
                         _data[column_name] = cell_data
 
-            results.append(_data)
+            _pkg_moq = _data.get("Pkg (MOQ)")
 
+            if _pkg_moq:
+           
+                match = re.match(r"([A-Za-z\s]+)\((\d+)\)", _pkg_moq)
+
+                if match:
+                    pkg = match.group(1).strip()
+                    moq = int(match.group(2))   
+                else:
+                    pkg = _pkg_moq.strip()  
+                    moq = None
+            else:
+                pkg, moq = None, None
+
+           
+            selected_data = {
+                "data_dist":_data.get("data_dist"),
+                "data_cur":_data.get("data_cur"),
+                "data_stock":_data.get("data_stock"),
+                "data_mfr":_data.get("data_stock"),
+                "sku": _data.get("Distributor Part #"),
+                "packaging": pkg,  
+                "moq": moq,  
+                "seller_url": _data.get("product_url"),
+                "seller_image": _data.get("img_src"),
+                "seller_name": _data.get("product_name"),
+                "aviliable_qty":_data.get("data_stock"),
+                "prices":_data.get("quantity_price'"),
+                "purchase_url":_data.get("product_url"),
+            }
+
+            results.append(selected_data)
+
+    
         if not results:
             return None
 
-        for result in results:
-            print(result)
+        return results
 
+    
     def scrape_product_informations(self):
         specs_data = None
         specs_container = self.soup.find("div", id="product-specs")
@@ -258,6 +297,7 @@ class TrustedPartScraper:
             return None
 
         part_names = []
+
         for div in part_divs:
             a_tags = div.find_all("a")
             if a_tags and len(a_tags) > 1:
@@ -268,17 +308,28 @@ class TrustedPartScraper:
         if not part_names:
             return None
 
-        print("part names", part_names)
         return part_names
 
     def scrape_descriptions(self):
         li_elements = self.soup.select("section.part-detail-section ul.panel-body li")
-        li_texts = [li.get_text(strip=True) for li in li_elements]
-        for text in li_texts:
-            print(text)
+        if not li_elements:
+            return None
 
-    def scrape_div_elements(self):
+        long_desc = [li.get_text(strip=True) for li in li_elements]
+
+        if not long_desc:
+            return None
+
+        return " ".join(long_desc)
+
+    def scrape_referenced_names(self):
         div_elements = self.soup.select("div.panel.py-4.px-8 div")
-        div_texts = [div.get_text(strip=True) for div in div_elements]
-        for text in div_texts:
-            print("text", text)
+        if not div_elements:
+            return None
+
+        referenced_texts = [div.get_text(strip=True) for div in div_elements]
+
+        if not referenced_texts:
+            return None
+
+        return referenced_texts
