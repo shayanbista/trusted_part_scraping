@@ -16,31 +16,20 @@ class TrustedPartScraper:
     def parse(self):
         self.data = {}
 
-        # title,model,stock_availability=self.scrape_title()
+        # title, model, stock_availability = self.scrape_title()
 
-        # self.data["mfg"]=title
-        # self.data["mpn"]=model
-        # self.data["part_status"]=stock_availability
+        # self.data["mfg"] = title
+        # self.data["mpn"] = model
+        # self.data["part_status"] = stock_availability
 
         # categories, description = self.scrape_categories()
 
-        # self.data['categories'] = categories
-        # self.data['description'] = description
+        # self.data["categories"] = categories
+        # self.data["description"] = description
 
-        # print("self data",self.data)
+        # print("self data", self.data)
 
-        print(self.scrape_similar_parts())
-        # print("specs",self.scrape_product_informations())
-
-        # self.data.update(self.scrape_product_informations())
-        # self.data.update(self.scrape_risks())
-        # self.data.update(self.scrape_specs_container())
-        # self.data.update(self.scrape_similar_parts())
-        # self.data.update(self.scrape_stock_and_price())
-        # self.scrape_stock_and_price()
-        # self.data.update(self.scrape_descriptions())
-        # self.data.update(self.scrape_div_elements())
-        # print("Final combined data:", self.data)
+        self.scrape_similar_parts_serial_number()
 
     def scrape_title(self):
         title_tag = self.soup.find("h1")
@@ -51,7 +40,6 @@ class TrustedPartScraper:
         stock_availability = (
             stock_availability.text.strip() if stock_availability else None
         )
-
         if title_tag:
             span_tag = title_tag.find("span")
             if span_tag:
@@ -70,9 +58,10 @@ class TrustedPartScraper:
         if not category_div:
             return None
 
-        description = self.soup.find(
-            "div", class_="lg:group-[.is-sticky]:hidden"
-        ).text.strip()
+        description_div = self.soup.find("div", class_="lg:group-[.is-sticky]:hidden")
+
+        description = description_div.text.strip() if description_div else None
+
         categories = []
         category_anchors = category_div.find_all("a")
 
@@ -93,25 +82,24 @@ class TrustedPartScraper:
         product_info["product_href"] = a_tag["href"] if a_tag else None
         return product_info
 
-
     def scrape_risks(self):
         risks = None
         buttons = self.soup.find_all("button", class_="flex items-stretch")
         if buttons:
             risks = {}
             lifecycle_button, supplychain_button = buttons[:2]
-            
+
             lifecycle_risk, risk_level = extract_button_info(lifecycle_button)
-            supplychain_risk, supplychain_risk_level = extract_button_info(supplychain_button)
-            
+            supplychain_risk, supplychain_risk_level = extract_button_info(
+                supplychain_button
+            )
+
             risks["lifecycle_risk_name"] = lifecycle_risk
             risks["risk_level"] = risk_level
             risks["supplychain_risk_name"] = supplychain_risk
             risks["supplychain_risk_level"] = supplychain_risk_level
-            
             return risks
         return risks
-
 
     def scrape_stock_and_price(self):
 
@@ -164,7 +152,9 @@ class TrustedPartScraper:
 
                 if link:
                     _data["product_url"] = link.get("href") or None
-                    _data["img_src"] = link.find("img")["src"] if link.find("img") else None
+                    _data["img_src"] = (
+                        link.find("img")["src"] if link.find("img") else None
+                    )
                     _data["product_name"] = link.get("title") or None
 
                 cell_data = cell.get_text(strip=True) or None
@@ -177,12 +167,10 @@ class TrustedPartScraper:
             results.append(_data)
 
         if not results:
-            return None 
+            return None
 
         for result in results:
             print(result)
-
-
 
     def scrape_product_informations(self):
         specs_data = None
@@ -197,106 +185,56 @@ class TrustedPartScraper:
                 specs_data[spec_name] = spec_value
         return specs_data
 
-    # def scrape_similar_parts(self):
-    #     similar_parts_data = {}
-    #     similar_parts_table = self.soup.find("table", id="SimilarPartsTable")
-    #     if not similar_parts_table:
-    #         return similar_parts_data
-
-    #     headers = (
-    #         [
-    #             header.get_text(strip=True)
-    #             for header in similar_parts_table.find("tr").find_all("td")[1:]
-    #         ]
-    #         if similar_parts_table.find("tr")
-    #         else []
-    #     )
-
-    #     products_data = []
-
-    #     product_columns = (
-    #         similar_parts_table.find_all("tr")[1].find_all("td")[1:]
-    #         if similar_parts_table.find_all("tr")
-    #         and len(similar_parts_table.find_all("tr")) > 1
-    #         else []
-    #     )
-
-    #     for product in product_columns:
-    #         product_info = {}
-
-    #         title_tag = product.find("a", href=True)
-    #         product_info["Product_Link"] = title_tag["href"] if title_tag else None
-
-    #         stock_tag = product.find("span", class_="text-success")
-    #         product_info["Stock"] = (
-    #             stock_tag.get_text(strip=True) if stock_tag else None
-    #         )
-
-    #         for spec_row in similar_parts_table.find_all("tr")[2:]:
-    #             spec_name_cell = spec_row.find("td", class_="!text-right")
-
-    #             spec_name = (
-    #                 spec_name_cell.get_text(strip=True) if spec_name_cell else None
-    #             )
-
-    #             spec_value_cell = (
-    #                 spec_row.find_all("td")[product_columns.index(product) + 1]
-    #                 if len(spec_row.find_all("td")) > product_columns.index(product) + 1
-    #                 else None
-    #             )
-    #             spec_value = (
-    #                 spec_value_cell.get_text(strip=True) if spec_value_cell else None
-    #             )
-
-    #             if spec_name:
-    #                 product_info[spec_name] = spec_value if spec_value else None
-
-    #         products_data.append(product_info)
-
-    #     similar_parts_data["similar_products"] = products_data
-    #     return similar_parts_data
-
     def scrape_similar_parts(self):
         similar_parts_data = {}
-        
+
         similar_parts_table = self.soup.find("table", id="SimilarPartsTable")
         if not similar_parts_table:
-            return similar_parts_data  
+            return similar_parts_data
 
-        
         headers = []
         header_row = similar_parts_table.find("tr")
+
         if header_row:
-            headers = [header.get_text(strip=True) for header in header_row.find_all("td")[1:]]
+            headers = [
+                header.get_text(strip=True) for header in header_row.find_all("td")[1:]
+            ]
 
         products_data = []
         rows = similar_parts_table.find_all("tr")
-        
-        if len(rows) > 1:  
-            product_columns = rows[1].find_all("td")[1:]  
+
+        if len(rows) > 1:
+            product_columns = rows[1].find_all("td")[1:]
 
             for product in product_columns:
                 product_info = {}
-             
+
                 title_tag = product.find("a", href=True)
                 product_info["Product_Link"] = title_tag["href"] if title_tag else None
 
                 stock_tag = product.find("span", class_="text-success")
-                product_info["Stock"] = stock_tag.get_text(strip=True) if stock_tag else None
+                product_info["Stock"] = (
+                    stock_tag.get_text(strip=True) if stock_tag else None
+                )
 
-               
-                for spec_row in rows[2:]:  
+                for spec_row in rows[2:]:
                     spec_name_cell = spec_row.find("td", class_="!text-right")
-                    spec_name = spec_name_cell.get_text(strip=True) if spec_name_cell else None
-
+                    spec_name = (
+                        spec_name_cell.get_text(strip=True) if spec_name_cell else None
+                    )
 
                     spec_value_cell = (
                         spec_row.find_all("td")[product_columns.index(product) + 1]
-                        if len(spec_row.find_all("td")) > (product_columns.index(product) + 1)
+                        if len(spec_row.find_all("td"))
+                        > (product_columns.index(product) + 1)
                         else None
                     )
 
-                    spec_value = spec_value_cell.get_text(strip=True) if spec_value_cell else None
+                    spec_value = (
+                        spec_value_cell.get_text(strip=True)
+                        if spec_value_cell
+                        else None
+                    )
 
                     if spec_name:
                         product_info[spec_name] = spec_value
@@ -305,6 +243,33 @@ class TrustedPartScraper:
 
         similar_parts_data["similar_products"] = products_data
         return similar_parts_data
+
+    def scrape_similar_parts_serial_number(self):
+        similar_parts_table = self.soup.find("table", id="SimilarPartsTable")
+
+        if not similar_parts_table:
+            return None
+
+        part_divs = similar_parts_table.find_all(
+            "div", class_="flex flex-col items-center justify-center p-1"
+        )
+
+        if not part_divs:
+            return None
+
+        part_names = []
+        for div in part_divs:
+            a_tags = div.find_all("a")
+            if a_tags and len(a_tags) > 1:
+                part_number = a_tags[1].get_text(strip=True)
+                if part_number:
+                    part_names.append(part_number)
+
+        if not part_names:
+            return None
+
+        print("part names", part_names)
+        return part_names
 
     def scrape_descriptions(self):
         li_elements = self.soup.select("section.part-detail-section ul.panel-body li")
